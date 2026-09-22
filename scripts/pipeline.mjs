@@ -13,7 +13,7 @@
  */
 
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 function usage(code = 1) {
@@ -141,28 +141,43 @@ if (cmd === "check") {
   if (theme && !["auto", "light", "dark"].includes(theme))
     envProblem(`--theme must be auto|light|dark (got ${theme})`);
   const out = opt("--out");
-  if (out && inputs.length > 1)
-    envProblem("--out applies to a single input");
   checkEnvironment(dirs.writeup, dirs.md2html);
   for (const f of inputs) if (!existsSync(f)) envProblem(`not found: ${resolve(f)}`);
 
-  let failed = 0;
+  // Expand directory inputs into their *.md files (skip README.md, matching
+  // both the audit gate and md2html conventions) so per-file counts are true.
+  const files = [];
   for (const f of inputs) {
+    if (statSync(f).isDirectory()) {
+      for (const name of readdirSync(f).sort()) {
+        if (!name.endsWith(".md") || name === "README.md") continue;
+        files.push(join(f, name));
+      }
+    } else {
+      files.push(resolve(f));
+    }
+  }
+  if (!files.length) envProblem(`no .md files found in ${inputs.join(", ")}`);
+  if (out && files.length > 1)
+    envProblem("--out applies to a single input");
+
+  let failed = 0;
+  for (const f of files) {
     if (!runAudit(dirs.writeup, f)) { failed++; continue; }
     if (!render(dirs.md2html, f, {
       theme,
       python: opt("--python"),
       noCheck: has("--no-check"),
       open: has("--open"),
-      out: inputs.length === 1 ? out : undefined,
+      out: files.length === 1 ? out : undefined,
     }))
       failed++;
   }
   if (failed) {
-    console.error(`pipeline: ${failed} of ${inputs.length} file(s) failed`);
+    console.error(`pipeline: ${failed} of ${files.length} file(s) failed`);
     process.exit(1);
   }
-  console.log(`pipeline: complete (${inputs.length} file${inputs.length > 1 ? "s" : ""})`);
+  console.log(`pipeline: complete (${files.length} file${files.length > 1 ? "s" : ""})`);
 } else {
   usage();
 }
