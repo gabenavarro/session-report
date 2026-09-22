@@ -9,12 +9,18 @@ const BIN = join(import.meta.dirname, "..", "scripts", "pipeline.mjs");
 const root = mkdtempSync(join(tmpdir(), "session-report-test-"));
 
 /** Build a fake writeup skill dir. `failAudit` makes the gate exit 1. */
-function makeWriteup(name, { failAudit = false } = {}) {
+function makeWriteup(name, { failAudit = false, failOn = null } = {}) {
   const dir = join(root, name);
   mkdirSync(join(dir, "scripts"), { recursive: true });
   writeFileSync(
     join(dir, "scripts", "audit_writeup.py"),
-    `#!/usr/bin/env python3\nimport sys\nsys.stdout.write("audit: fake finding\\n") if ${failAudit ? "True" : "False"} else sys.stdout.write("audit: clean\\n")\nsys.exit(1 if ${failAudit ? "True" : "False"} else 0)\n`,
+    `#!/usr/bin/env python3
+import sys
+name = sys.argv[1]
+fail = ${failAudit ? "True" : failOn ? `(${JSON.stringify(failOn)} in name)` : "False"}
+sys.stdout.write("audit: fake finding\\n") if fail else sys.stdout.write("audit: clean\\n")
+sys.exit(1 if fail else 0)
+`,
   );
   return dir;
 }
@@ -91,7 +97,7 @@ test("run: clean audit renders, exit 0, HTML exists", () => {
   const md = writeReport("ok.md");
   const r = run("run", md, "--writeup", w, "--md2html", m);
   assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stdout, /audit gate clean/);
+  assert.match(r.stdout, /pipeline: complete \(1 file\)/);
   assert.match(r.stdout, /pipeline: complete/);
   assert.ok(existsSync(join(root, "ok.html")));
 });
@@ -111,6 +117,39 @@ test("run: invalid --theme rejected", () => {
   const r = run("run", md, "--writeup", w, "--md2html", m, "--theme", "neon");
   assert.equal(r.status, 1);
   assert.match(r.stderr, /--theme must be auto\|light\|dark/);
+});
+
+test("run: multiple inputs all rendered", () => {
+  const w = makeWriteup("wu-m1");
+  const m = makeMd2html("m-m1");
+  const a = writeReport("multi-a.md");
+  const b = writeReport("multi-b.md");
+  const r = run("run", a, b, "--writeup", w, "--md2html", m);
+  assert.equal(r.status, 0, r.stderr);
+  assert.ok(existsSync(join(root, "multi-a.html")), "first rendered");
+  assert.ok(existsSync(join(root, "multi-b.html")), "second rendered (was silently dropped)");
+  assert.match(r.stdout, /pipeline: complete \(2 files\)/);
+});
+test("run: one failing input leaves others rendered, exits 1", () => {
+  const w = makeWriteup("wu-mix", { failOn: "-bad.md" });
+  const m = makeMd2html("m-mix");
+  const bad = writeReport("report-bad.md");
+  const good = writeReport("report-good.md");
+  const r = run("run", bad, good, "--writeup", w, "--md2html", m);
+  assert.equal(r.status, 1, "exit 1 when any input fails");
+  assert.ok(!existsSync(join(root, "report-bad.html")), "failing input produced no HTML");
+  assert.ok(existsSync(join(root, "report-good.html")), "other input still rendered");
+  assert.match(r.stderr, /1 of 2 file\(s\) failed/);
+});
+
+test("run: --out with multiple inputs rejected", () => {
+  const w = makeWriteup("wu-m3");
+  const m = makeMd2html("m-m3");
+  const a = writeReport("out-a.md");
+  const b = writeReport("out-b.md");
+  const r = run("run", a, b, "--out", join(root, "x.html"), "--writeup", w, "--md2html", m);
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /--out applies to a single input/);
 });
 
 test("run: missing flags usage, exit 1", () => {

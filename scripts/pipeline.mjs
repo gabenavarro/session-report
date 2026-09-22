@@ -112,24 +112,41 @@ if (cmd === "check") {
   const dirs = requireDirs();
   checkEnvironment(dirs.writeup, dirs.md2html);
 } else if (cmd === "run") {
-  const md = rest.find((a) => !a.startsWith("--"));
-  if (!md) usage();
+  const inputs = [];
+  for (let i = 0; i < rest.length; i++) {
+    if (rest[i] === "--writeup" || rest[i] === "--md2html" ||
+        rest[i] === "--theme" || rest[i] === "--python" || rest[i] === "--out") { i++; continue; }
+    if (rest[i].startsWith("--")) continue;
+    inputs.push(rest[i]);
+  }
+  if (!inputs.length) usage();
   const dirs = requireDirs();
   const theme = opt("--theme");
   if (theme && !["auto", "light", "dark"].includes(theme))
     envProblem(`--theme must be auto|light|dark (got ${theme})`);
+  const out = opt("--out");
+  if (out && inputs.length > 1)
+    envProblem("--out applies to a single input");
   checkEnvironment(dirs.writeup, dirs.md2html);
-  if (!existsSync(md)) envProblem(`not found: ${resolve(md)}`);
-  if (!runAudit(dirs.writeup, md)) process.exit(1);
-  if (!render(dirs.md2html, md, {
-    theme,
-    python: opt("--python"),
-    noCheck: has("--no-check"),
-    open: has("--open"),
-    out: opt("--out"),
-  }))
+  for (const f of inputs) if (!existsSync(f)) envProblem(`not found: ${resolve(f)}`);
+
+  let failed = 0;
+  for (const f of inputs) {
+    if (!runAudit(dirs.writeup, f)) { failed++; continue; }
+    if (!render(dirs.md2html, f, {
+      theme,
+      python: opt("--python"),
+      noCheck: has("--no-check"),
+      open: has("--open"),
+      out: inputs.length === 1 ? out : undefined,
+    }))
+      failed++;
+  }
+  if (failed) {
+    console.error(`pipeline: ${failed} of ${inputs.length} file(s) failed`);
     process.exit(1);
-  console.log("pipeline: complete");
+  }
+  console.log(`pipeline: complete (${inputs.length} file${inputs.length > 1 ? "s" : ""})`);
 } else {
   usage();
 }
