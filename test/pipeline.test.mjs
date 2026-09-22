@@ -119,6 +119,15 @@ test("run: invalid --theme rejected", () => {
   assert.match(r.stderr, /--theme must be auto\|light\|dark/);
 });
 
+test("CLI: --help exits 0, --version prints version", () => {
+  const h = run("--help");
+  assert.equal(h.status, 0, "--help is a successful query");
+  assert.match(h.stdout, /Usage:/);
+  const v = run("--version");
+  assert.equal(v.status, 0);
+  assert.match(v.stdout.trim(), /^session-report pipeline \d+\.\d+\.\d+$/);
+});
+
 test("run: multiple inputs all rendered", () => {
   const w = makeWriteup("wu-m1");
   const m = makeMd2html("m-m1");

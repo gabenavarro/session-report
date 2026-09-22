@@ -16,16 +16,32 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 
-function usage() {
+function usage(code = 1) {
   console.log(`session-report pipeline
 
 Usage:
   pipeline.mjs check --writeup <dir> --md2html <dir>
-  pipeline.mjs run <report.md> --writeup <dir> --md2html <dir> [--theme auto|light|dark] [--no-check] [--open] [--python <path>] [--out <path>]`);
-  process.exit(1);
+  pipeline.mjs run <report.md> [...] --writeup <dir> --md2html <dir> [--theme auto|light|dark] [--no-check] [--open] [--python <path>] [--out <path>]
+
+Options:
+  --writeup <dir>   path to the technical-session-writeup skill (required)
+  --md2html <dir>   path to the md2html skill (required)
+  --theme <t>       auto | light | dark (default: auto)
+  --no-check        skip the build-time Mermaid syntax gate
+  --open            open rendered reports in the default browser
+  --python <path>   python interpreter with xy installed
+  --out <path>      output path (single input only)
+  --version         print the pipeline version and exit
+  --help            print this help and exit`);
+  process.exit(code);
 }
 
 const args = process.argv.slice(2);
+if (args.includes("--version") || args.includes("-v")) {
+  console.log("session-report pipeline 0.1.0");
+  process.exit(0);
+}
+if (args.includes("--help") || args.includes("-h")) usage(0);
 const cmd = args[0];
 const rest = args.slice(1);
 
