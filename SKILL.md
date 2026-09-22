@@ -83,9 +83,9 @@ lockstep requirement:
 
 The dual-artifact frontmatter (the write-up's H1 title is also the HTML
 report title; `date` is used by the HTML footer — keep it deterministic):
-
 ````markdown
 ---
+
 title: <same as the H1>
 description: <one line: what was built + key result>
 date: YYYY-MM-DD
@@ -98,18 +98,18 @@ theme: auto
 
 ```bash
 node <skill-dir>/scripts/pipeline.mjs run \
-  <writeup.md> \
+  <writeup.md> [more.md ... | dir] \
   --writeup <path-to-technical-session-writeup> \
   --md2html <path-to-md2html> \
   [--theme auto|light|dark] [--no-check] [--open]
 ```
 
-The pipeline runs the write-up audit gate **first**; on any hard finding it
-stops, prints the findings, and exits non-zero — no HTML is produced from a
-failing document. On a clean audit it invokes the `md2html` renderer and
-streams its output. A render failure (e.g. a Mermaid syntax error) exits
-non-zero with the renderer's own error. Advisory findings from the audit
-gate are printed and do not block.
+The pipeline runs the write-up audit gate **first** for every input; on any
+hard finding it stops that file, prints the findings, and no HTML is
+produced from a failing document. A directory input expands to its
+`*.md` files (README.md skipped). With multiple inputs, the pipeline
+keeps going after a failure, reports each file, and exits non-zero with
+`N of M file(s) failed`. Advisory findings are printed and do not block.
 
 ### Phase 4 — Verify the HTML
 

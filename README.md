@@ -36,15 +36,17 @@ session-writeup` needs only Python 3.
 # 1. environment (once per machine, idempotent)
 bash <skill-dir>/scripts/setup.sh
 
-# 2. chain gate: audit → render
-node <skill-dir>/scripts/pipeline.mjs run <writeup.md> \
+# 2. chain gate: audit → render (one file, many files, or a directory)
+node <skill-dir>/scripts/pipeline.mjs run <writeup.md> [more.md ... | dir] \
   --writeup <path-to-technical-session-writeup> \
   --md2html <path-to-md2html> \
   [--theme auto|light|dark] [--no-check] [--open]
 ```
 
-Exit 0 only when the audit gate is clean **and** the render succeeded.
-Advisory audit findings print but do not block.
+Exit 0 only when every audited document is clean **and** every render
+succeeded. With multiple inputs the pipeline keeps going after a failure,
+reports each file, and exits 1 with `N of M file(s) failed`. Advisory
+audit findings print but do not block.
 
 ## What the HTML gets you
 
