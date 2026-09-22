@@ -139,6 +139,22 @@ test("run: multiple inputs all rendered", () => {
   assert.ok(existsSync(join(root, "multi-b.html")), "second rendered (was silently dropped)");
   assert.match(r.stdout, /pipeline: complete \(2 files\)/);
 });
+
+test("run: directory input expands to its .md files, skips README.md", () => {
+  const w = makeWriteup("wu-dir");
+  const m = makeMd2html("m-dir");
+  const d = join(root, "dir-in");
+  mkdirSync(d, { recursive: true });
+  writeFileSync(join(d, "one.md"), "# 1\n");
+  writeFileSync(join(d, "two.md"), "# 2\n");
+  writeFileSync(join(d, "README.md"), "# R\n");
+  const r = run("run", d, "--writeup", w, "--md2html", m);
+  assert.equal(r.status, 0, r.stderr);
+  assert.ok(existsSync(join(d, "one.html")));
+  assert.ok(existsSync(join(d, "two.html")));
+  assert.ok(!existsSync(join(d, "README.html")), "README skipped");
+  assert.match(r.stdout, /pipeline: complete \(2 files\)/);
+});
 test("run: one failing input leaves others rendered, exits 1", () => {
   const w = makeWriteup("wu-mix", { failOn: "-bad.md" });
   const m = makeMd2html("m-mix");
